@@ -2,123 +2,209 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1">
 <meta name="theme-color" content="#0d7377">
-<title>Biology Quiz • CCST4083</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Biology Quiz</title>
 <style>
   :root {
-    --bg: #f4f7f6;
+    --bg: #f0f4f8;
     --card: #ffffff;
     --primary: #0d7377;
-    --primary-dark: #095456;
-    --accent: #14a085;
-    --correct: #2ecc71;
-    --wrong: #e74c3c;
-    --text: #2c3e50;
-    --muted: #7f8c8d;
-    --shadow: 0 4px 20px rgba(0,0,0,0.08);
+    --primary-light: #14a085;
+    --accent: #2dd4bf;
+    --correct: #10b981;
+    --wrong: #ef4444;
+    --text: #1e293b;
+    --muted: #64748b;
+    --shadow: 0 10px 25px -5px rgba(0,0,0,0.08), 0 4px 6px -2px rgba(0,0,0,0.04);
+    --radius: 16px;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   body {
-    font-family: system-ui, -apple-system, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
     background: var(--bg);
     color: var(--text);
-    line-height: 1.55;
     min-height: 100vh;
     min-height: 100dvh;
+    overflow-x: hidden;
   }
-  header {
-    background: linear-gradient(135deg, var(--primary), var(--accent));
+  .app-header {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
     color: white;
-    padding: 1.2rem 1rem;
+    padding: 1.25rem 1rem 1.5rem;
     text-align: center;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    box-shadow: 0 4px 12px rgba(13,115,119,0.25);
   }
-  header h1 { font-size: clamp(1.4rem, 5vw, 1.8rem); margin-bottom: 0.25rem; }
-  header p { opacity: 0.92; font-size: clamp(0.85rem, 3.5vw, 1rem); }
-  .container { max-width: 800px; margin: 0 auto; padding: 1rem 0.9rem 2rem; }
-  .categories { display: grid; gap: 0.85rem; }
-  .cat-btn {
+  .app-header h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; }
+  .app-header p { opacity: 0.9; font-size: 0.85rem; margin-top: 0.25rem; }
+  .screen { display: none; animation: fadeIn 0.25s ease; }
+  .screen.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .container { max-width: 480px; margin: 0 auto; padding: 1rem 1rem 2rem; }
+  .topic-grid { display: grid; gap: 0.75rem; }
+  .topic-card {
     background: var(--card);
-    border: none;
-    border-radius: 14px;
-    padding: 1.15rem 1.2rem;
-    text-align: left;
-    font-size: 1.05rem;
-    cursor: pointer;
+    border-radius: var(--radius);
+    padding: 1.1rem 1.15rem;
     box-shadow: var(--shadow);
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    min-height: 64px;
+    gap: 0.9rem;
+    cursor: pointer;
+    border: none;
     width: 100%;
+    text-align: left;
+    transition: transform 0.15s, box-shadow 0.15s;
   }
-  .cat-btn:active { transform: scale(0.98); }
-  .cat-btn strong { color: var(--primary); }
-  .cat-count { background: var(--primary); color: white; padding: 0.25rem 0.65rem; border-radius: 20px; font-size: 0.8rem; }
-  .quiz-area { display: none; }
-  .quiz-area.active { display: block; }
-  .progress { height: 8px; background: #e0e0e0; border-radius: 4px; margin-bottom: 1.2rem; overflow: hidden; }
-  .progress-bar { height: 100%; background: var(--accent); width: 0%; transition: width 0.3s; }
-  .question-card { background: var(--card); border-radius: 16px; padding: 1.25rem 1.1rem; box-shadow: var(--shadow); margin-bottom: 1rem; }
-  .q-num { color: var(--muted); font-size: 0.85rem; margin-bottom: 0.4rem; }
-  .q-text { font-size: clamp(1.05rem, 4.2vw, 1.2rem); font-weight: 600; margin-bottom: 1rem; }
-  .options { display: flex; flex-direction: column; gap: 0.65rem; }
+  .topic-card:active { transform: scale(0.98); }
+  .topic-icon {
+    width: 48px; height: 48px; border-radius: 12px;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    color: white; display: flex; align-items: center; justify-content: center;
+    font-size: 1.4rem; flex-shrink: 0;
+  }
+  .topic-info { flex: 1; }
+  .topic-info strong { display: block; font-size: 1.05rem; color: var(--text); }
+  .topic-info span { font-size: 0.8rem; color: var(--muted); }
+  .topic-count {
+    background: #f1f5f9; color: var(--primary); font-weight: 600;
+    padding: 0.25rem 0.6rem; border-radius: 20px; font-size: 0.75rem;
+  }
+  .progress-wrap { margin-bottom: 1rem; }
+  .progress-label { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.4rem; }
+  .progress { height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; }
+  .progress-bar { height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent)); width: 0%; transition: width 0.3s; }
+  .question-card {
+    background: var(--card);
+    border-radius: 20px;
+    padding: 1.4rem 1.2rem;
+    box-shadow: var(--shadow);
+    margin-bottom: 1rem;
+  }
+  .q-num { color: var(--muted); font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+  .q-text { font-size: 1.15rem; font-weight: 600; line-height: 1.4; margin-bottom: 1.2rem; }
+  .options { display: flex; flex-direction: column; gap: 0.6rem; }
   .opt-btn {
-    background: #f8f9fa; border: 2px solid #e9ecef; border-radius: 12px; padding: 1rem;
-    text-align: left; font-size: 1rem; cursor: pointer; min-height: 52px; width: 100%;
+    background: #f8fafc;
+    border: 2px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 0.95rem 1rem;
+    text-align: left;
+    font-size: 0.98rem;
+    cursor: pointer;
+    width: 100%;
+    transition: all 0.12s;
   }
   .opt-btn:active:not(:disabled) { transform: scale(0.98); }
-  .opt-btn.correct { background: #d5f5e3; border-color: var(--correct); }
-  .opt-btn.wrong { background: #fadbd8; border-color: var(--wrong); }
+  .opt-btn.correct { background: #d1fae5; border-color: var(--correct); color: #065f46; }
+  .opt-btn.wrong { background: #fee2e2; border-color: var(--wrong); color: #991b1b; }
   .opt-btn:disabled { cursor: default; }
-  .feedback { margin-top: 1rem; padding: 0.85rem 1rem; border-radius: 10px; font-size: 0.95rem; display: none; }
+  .feedback {
+    margin-top: 1rem;
+    padding: 0.9rem 1rem;
+    border-radius: 12px;
+    font-size: 0.92rem;
+    display: none;
+  }
   .feedback.show { display: block; }
-  .feedback.correct { background: #d5f5e3; color: #1e8449; }
-  .feedback.wrong { background: #fadbd8; color: #922b21; }
-  .nav-btns { display: flex; gap: 0.75rem; margin-top: 1rem; }
-  .nav-btn { flex: 1; padding: 0.95rem; border: none; border-radius: 12px; font-size: 1.05rem; cursor: pointer; font-weight: 600; min-height: 52px; }
+  .feedback.correct { background: #d1fae5; color: #065f46; }
+  .feedback.wrong { background: #fee2e2; color: #991b1b; }
+  .nav-row { display: flex; gap: 0.6rem; margin-top: 0.5rem; }
+  .nav-btn {
+    flex: 1; padding: 0.95rem; border: none; border-radius: 14px;
+    font-size: 1rem; font-weight: 600; cursor: pointer; min-height: 50px;
+  }
   .next-btn { background: var(--primary); color: white; }
-  .back-btn { background: #e9ecef; color: var(--text); }
-  .score-screen { background: var(--card); border-radius: 16px; padding: 1.75rem 1.2rem; text-align: center; box-shadow: var(--shadow); display: none; }
-  .score-num { font-size: clamp(2.4rem, 12vw, 3.2rem); font-weight: 700; color: var(--accent); margin: 0.8rem 0; }
-  .restart-btn { background: var(--primary); color: white; border: none; padding: 1rem 1.8rem; border-radius: 12px; font-size: 1.05rem; cursor: pointer; font-weight: 600; }
-  footer { text-align: center; padding: 1.5rem 1rem; color: var(--muted); font-size: 0.8rem; }
+  .next-btn:disabled { opacity: 0.5; }
+  .back-btn { background: #e2e8f0; color: var(--text); }
+  .score-screen { text-align: center; padding: 2rem 1rem; }
+  .score-circle {
+    width: 140px; height: 140px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    color: white; display: flex; align-items: center; justify-content: center;
+    margin: 1.5rem auto; font-size: 2.4rem; font-weight: 700;
+    box-shadow: 0 10px 30px rgba(13,115,119,0.3);
+  }
+  .score-msg { color: var(--muted); margin-bottom: 1.5rem; font-size: 1.05rem; }
+  .restart-btn {
+    background: var(--primary); color: white; border: none;
+    padding: 1rem 2rem; border-radius: 14px; font-size: 1rem; font-weight: 600;
+    cursor: pointer; min-width: 200px;
+  }
+  .best { margin-top: 1rem; font-size: 0.85rem; color: var(--muted); }
+  footer { text-align: center; padding: 1.5rem; color: var(--muted); font-size: 0.75rem; }
 </style>
 </head>
 <body>
-<header>
+<div class="app-header">
   <h1>Biology Quiz</h1>
-  <p>Human Anatomy & Physiology • CCST4083</p>
-</header>
+  <p>CCST4083 • Anatomy & Physiology</p>
+</div>
+
 <div class="container">
-  <div id="menu">
-    <h2 style="margin-bottom:1rem; color:var(--primary);">Choose a topic</h2>
-    <div class="categories">
-      <button class="cat-btn" onclick="startQuiz('Homeostasis')"><div><strong>Homeostasis</strong><br><span style="font-size:0.85rem;color:var(--muted)">8 questions</span></div><span class="cat-count">8</span></button>
-      <button class="cat-btn" onclick="startQuiz('Action Potential')"><div><strong>Action Potential</strong><br><span style="font-size:0.85rem;color:var(--muted)">8 questions</span></div><span class="cat-count">8</span></button>
-      <button class="cat-btn" onclick="startQuiz('Levels of Organization & Basics')"><div><strong>Levels of Organization & Basics</strong><br><span style="font-size:0.85rem;color:var(--muted)">8 questions</span></div><span class="cat-count">8</span></button>
-      <button class="cat-btn" onclick="startQuiz('Integumentary System')"><div><strong>Integumentary System</strong><br><span style="font-size:0.85rem;color:var(--muted)">10 questions</span></div><span class="cat-count">10</span></button>
-      <button class="cat-btn" onclick="startQuiz('Cells & Tissues')"><div><strong>Cells & Tissues</strong><br><span style="font-size:0.85rem;color:var(--muted)">8 questions</span></div><span class="cat-count">8</span></button>
-      <button class="cat-btn" onclick="startQuiz('Chemical Environment')"><div><strong>Chemical Environment</strong><br><span style="font-size:0.85rem;color:var(--muted)">8 questions</span></div><span class="cat-count">8</span></button>
+  <div id="menu" class="screen active">
+    <div class="topic-grid">
+      <button class="topic-card" onclick="startQuiz('Homeostasis')">
+        <div class="topic-icon">⚖️</div>
+        <div class="topic-info"><strong>Homeostasis</strong><span>Feedback & regulation</span></div>
+        <span class="topic-count">8</span>
+      </button>
+      <button class="topic-card" onclick="startQuiz('Action Potential')">
+        <div class="topic-icon">⚡</div>
+        <div class="topic-info"><strong>Action Potential</strong><span>Neuron signalling</span></div>
+        <span class="topic-count">8</span>
+      </button>
+      <button class="topic-card" onclick="startQuiz('Levels of Organization & Basics')">
+        <div class="topic-icon">🔬</div>
+        <div class="topic-info"><strong>Levels & Basics</strong><span>Organisation & terms</span></div>
+        <span class="topic-count">8</span>
+      </button>
+      <button class="topic-card" onclick="startQuiz('Integumentary System')">
+        <div class="topic-icon">🧴</div>
+        <div class="topic-info"><strong>Integumentary</strong><span>Skin & glands</span></div>
+        <span class="topic-count">10</span>
+      </button>
+      <button class="topic-card" onclick="startQuiz('Cells & Tissues')">
+        <div class="topic-icon">🧫</div>
+        <div class="topic-info"><strong>Cells & Tissues</strong><span>Cytology & histology</span></div>
+        <span class="topic-count">8</span>
+      </button>
+      <button class="topic-card" onclick="startQuiz('Chemical Environment')">
+        <div class="topic-icon">🧪</div>
+        <div class="topic-info"><strong>Chemical Environment</strong><span>Ions, pH & transport</span></div>
+        <span class="topic-count">8</span>
+      </button>
     </div>
   </div>
-  <div class="quiz-area" id="quizArea">
-    <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+
+  <div id="quiz" class="screen">
+    <div class="progress-wrap">
+      <div class="progress-label"><span id="qLabel">Question 1</span><span id="qPct">0%</span></div>
+      <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+    </div>
     <div class="question-card" id="questionCard"></div>
-    <div class="nav-btns">
-      <button class="nav-btn back-btn" onclick="showMenu()">← Topics</button>
-      <button class="nav-btn next-btn" id="nextBtn" disabled onclick="nextQuestion()">Next →</button>
+    <div class="nav-row">
+      <button class="nav-btn back-btn" onclick="showMenu()">Topics</button>
+      <button class="nav-btn next-btn" id="nextBtn" disabled onclick="nextQuestion()">Next</button>
     </div>
   </div>
-  <div class="score-screen" id="scoreScreen">
-    <h2>Quiz Complete</h2>
-    <div class="score-num" id="finalScore">0/0</div>
-    <div id="scoreMsg" style="margin-bottom:1.3rem;color:var(--muted);"></div>
-    <button class="restart-btn" onclick="showMenu()">Try Another Topic</button>
-    <div id="bestScore" style="font-size:0.9rem;color:var(--muted);margin-top:0.9rem;"></div>
+
+  <div id="score" class="screen">
+    <div class="score-screen">
+      <h2 style="color:var(--primary);">Quiz Complete</h2>
+      <div class="score-circle" id="finalScore">0/0</div>
+      <div class="score-msg" id="scoreMsg"></div>
+      <button class="restart-btn" onclick="showMenu()">Back to Topics</button>
+      <div class="best" id="bestScore"></div>
+    </div>
   </div>
 </div>
-<footer>Questions from your HKU SPACE notes</footer>
+<footer>Based on your HKU SPACE lecture notes</footer>
 
 <script>
 const QUESTIONS = {
@@ -188,11 +274,12 @@ const QUESTIONS = {
 
 let currentCat = '', questions = [], currentIdx = 0, score = 0, answered = false;
 
-function showMenu() {
-  document.getElementById('menu').style.display = 'block';
-  document.getElementById('quizArea').classList.remove('active');
-  document.getElementById('scoreScreen').style.display = 'none';
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
 }
+
+function showMenu() { showScreen('menu'); }
 
 function startQuiz(cat) {
   currentCat = cat;
@@ -204,10 +291,8 @@ function startQuiz(cat) {
   currentIdx = 0;
   score = 0;
   answered = false;
-  document.getElementById('menu').style.display = 'none';
-  document.getElementById('scoreScreen').style.display = 'none';
-  document.getElementById('quizArea').classList.add('active');
-  document.getElementById('nextBtn').textContent = 'Next →';
+  document.getElementById('nextBtn').textContent = 'Next';
+  showScreen('quiz');
   showQuestion();
 }
 
@@ -216,9 +301,12 @@ function showQuestion() {
   const nextBtn = document.getElementById('nextBtn');
   nextBtn.disabled = true;
   const q = questions[currentIdx];
-  document.getElementById('progressBar').style.width = (currentIdx / questions.length * 100) + '%';
+  const pct = Math.round((currentIdx / questions.length) * 100);
+  document.getElementById('progressBar').style.width = pct + '%';
+  document.getElementById('qLabel').textContent = `Question ${currentIdx + 1} of ${questions.length}`;
+  document.getElementById('qPct').textContent = pct + '%';
 
-  let html = `<div class="q-num">Question ${currentIdx + 1} of ${questions.length}</div>`;
+  let html = `<div class="q-num">Question ${currentIdx + 1}</div>`;
   html += `<div class="q-text">${q.q}</div><div class="options">`;
   q.opts.forEach((opt, i) => {
     html += `<button class="opt-btn" onclick="selectOption(${i})">${String.fromCharCode(65+i)}. ${opt}</button>`;
@@ -243,11 +331,11 @@ function selectOption(idx) {
     buttons[idx].classList.add('wrong');
     buttons[q.a].classList.add('correct');
     feedback.className = 'feedback show wrong';
-    feedback.innerHTML = `<strong>Incorrect.</strong> Correct: ${String.fromCharCode(65+q.a)}. ${q.exp}`;
+    feedback.innerHTML = `<strong>Incorrect.</strong> Answer: ${String.fromCharCode(65+q.a)}. ${q.exp}`;
   }
   const nextBtn = document.getElementById('nextBtn');
   nextBtn.disabled = false;
-  if (currentIdx === questions.length - 1) nextBtn.textContent = 'See Score';
+  if (currentIdx === questions.length - 1) nextBtn.textContent = 'Finish';
 }
 
 function nextQuestion() {
@@ -260,17 +348,15 @@ function nextQuestion() {
 }
 
 function showScore() {
-  document.getElementById('quizArea').classList.remove('active');
-  const scoreScreen = document.getElementById('scoreScreen');
-  scoreScreen.style.display = 'block';
   const pct = Math.round((score / questions.length) * 100);
   document.getElementById('finalScore').textContent = `${score}/${questions.length}`;
-  let msg = pct >= 90 ? 'Excellent!' : pct >= 70 ? 'Good work.' : pct >= 50 ? 'Keep studying.' : 'Review the notes.';
-  document.getElementById('scoreMsg').textContent = msg + ` (${pct}%)`;
+  let msg = pct >= 90 ? 'Excellent work!' : pct >= 70 ? 'Good job — review a few points.' : pct >= 50 ? 'Keep practising.' : 'Review the notes and try again.';
+  document.getElementById('scoreMsg').textContent = msg;
   const key = 'best_' + currentCat;
   const prev = parseInt(localStorage.getItem(key) || '0');
   if (score > prev) localStorage.setItem(key, score);
-  document.getElementById('bestScore').textContent = `Best for this topic: ${Math.max(score, prev)}/${questions.length}`;
+  document.getElementById('bestScore').textContent = `Best score for this topic: ${Math.max(score, prev)}/${questions.length}`;
+  showScreen('score');
 }
 </script>
 </body>
