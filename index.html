@@ -146,6 +146,34 @@ body{
 .hint{font-size:.75rem;color:var(--muted);margin-top:.35rem}
 footer{text-align:center;color:var(--muted);font-size:.72rem;padding:1.1rem 0 .2rem}
 .kbd{font-size:.72rem;color:var(--muted);margin-top:.5rem}
+
+.heatmap{display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem;margin-bottom:.85rem}
+.heat-cell{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:.5rem .45rem;text-align:center;box-shadow:var(--shadow);min-height:58px}
+.heat-cell .hbar{height:8px;border-radius:999px;background:var(--border);overflow:hidden;margin:.35rem 0 .2rem}
+.heat-cell .hbar>i{display:block;height:100%;border-radius:999px}
+.heat-cell .hl{font-size:.68rem;color:var(--muted);line-height:1.2}
+.badge{
+  display:inline-block;font-size:.65rem;font-weight:800;padding:.18rem .45rem;border-radius:999px;margin-top:.25rem;
+  border:1px solid var(--border);
+}
+.badge.bronze{background:#f3e8d8;color:#8b5a2b;border-color:#d2b48c}
+.badge.silver{background:#e8eef5;color:#4b5563;border-color:#9ca3af}
+.badge.gold{background:#fef3c7;color:#92400e;border-color:#f59e0b}
+.badge.none{background:transparent;color:var(--muted)}
+html[data-theme="dark"] .badge.bronze{background:#3b2a1a;color:#f0c090}
+html[data-theme="dark"] .badge.silver{background:#2a3340;color:#d1d5db}
+html[data-theme="dark"] .badge.gold{background:#3b2f12;color:#fbbf24}
+.tag.diff-easy{background:color-mix(in srgb,var(--correct) 16%,transparent);color:var(--correct)}
+.tag.diff-medium{background:color-mix(in srgb,#f59e0b 16%,transparent);color:#b45309}
+.tag.diff-hard{background:color-mix(in srgb,var(--wrong) 16%,transparent);color:var(--wrong)}
+.tag.bm{background:color-mix(in srgb,#8b5cf6 16%,transparent);color:#7c3aed}
+.summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:.45rem;margin:0.7rem auto 1rem;max-width:320px;text-align:left}
+.summary-grid .panel{margin:0;padding:.65rem .75rem}
+.summary-grid b{color:var(--primary)}
+.stats-rows{font-size:.88rem;line-height:1.5;color:var(--muted)}
+.stats-rows b{color:var(--text)}
+.diff-seg{display:flex;flex-wrap:wrap;gap:.35rem;margin:.5rem 0}
+
 </style>
 </head>
 <body>
@@ -171,12 +199,26 @@ footer{text-align:center;color:var(--muted);font-size:.72rem;padding:1.1rem 0 .2
       <button type="button" class="seg-btn" data-mode="wrong">Wrong only</button>
       <button type="button" class="seg-btn" data-mode="mixed">Mixed</button>
       <button type="button" class="seg-btn" data-mode="diagnostic">Diagnostic</button>
+      <button type="button" class="seg-btn" data-mode="endless">Endless</button>
+      <button type="button" class="seg-btn" data-mode="traps">Exam traps</button>
+      <button type="button" class="seg-btn" data-mode="bookmarks">Bookmarks</button>
     </div>
+    <div id="heatmap" class="heatmap" aria-label="Chapter mastery overview"></div>
     <div class="toolbar">
       <label class="toggle"><input type="checkbox" id="timerToggle"> 45s timer</label>
       <label class="toggle"><input type="checkbox" id="simpleToggle"> Simpler explain</label>
+      <label class="toggle"><input type="checkbox" id="hapticToggle" checked> Haptics</label>
       <button type="button" class="chip" id="exportBtn">Export JSON</button>
+      <button type="button" class="chip" id="importBtn">Import</button>
+      <input type="file" id="importFile" accept="application/json,.json" hidden>
       <button type="button" class="chip" id="resetAllBtn">Reset all</button>
+    </div>
+    <div class="diff-seg" id="diffSeg">
+      <span class="hint" style="width:100%;margin:0">Difficulty preference:</span>
+      <button type="button" class="seg-btn active" data-diff="any">Any</button>
+      <button type="button" class="seg-btn" data-diff="easy">Easy</button>
+      <button type="button" class="seg-btn" data-diff="medium">Medium</button>
+      <button type="button" class="seg-btn" data-diff="hard">Hard</button>
     </div>
     <p class="hint" id="modeHint">Quiz: scored, prefers due/unseen items (spaced repetition).</p>
     <div id="mixedBox" class="panel" style="display:none">
@@ -195,6 +237,10 @@ footer{text-align:center;color:var(--muted);font-size:.72rem;padding:1.1rem 0 .2
     <details class="panel" open id="conceptsPanel">
       <summary><span>Key concepts</span><span>▾</span></summary>
       <ul id="conceptsList"></ul>
+    </details>
+    <details class="panel" id="chapStatsPanel">
+      <summary><span>Chapter stats</span><span>▾</span></summary>
+      <div class="stats-rows" id="chapStatsBody"></div>
     </details>
     <div class="panel">
       <div id="prefaceMeta" class="hint"></div>
@@ -217,7 +263,7 @@ footer{text-align:center;color:var(--muted);font-size:.72rem;padding:1.1rem 0 .2
     </div>
     <div class="progress"><i id="progressBar"></i></div>
     <div class="question-card" id="questionCard"></div>
-    <p class="kbd">Keys: 1–4 answer · D don’t know · F flag · S skip · Enter next</p>
+    <p class="kbd">Keys: 1–4 answer · D don’t know · F flag · B bookmark · S skip · Enter next</p>
     <div class="nav-row">
       <button class="nav-btn back-btn" type="button" onclick="confirmLeave()">Exit</button>
       <button class="nav-btn next-btn" id="nextBtn" type="button" disabled onclick="nextQ()">Next</button>
@@ -231,10 +277,12 @@ footer{text-align:center;color:var(--muted);font-size:.72rem;padding:1.1rem 0 .2
       <div class="score-circle" id="finalScore">0/10</div>
       <div id="scoreMsg" style="color:var(--muted);margin:.4rem 0"></div>
       <div id="bestMsg" class="hint"></div>
-      <div id="overConfMsg" class="hint" style="margin-bottom:.8rem"></div>
+      <div id="overConfMsg" class="hint"></div>
+      <div class="summary-grid" id="sessionSummary"></div>
       <div class="score-actions">
         <button class="nav-btn next-btn" type="button" id="reviewBtn" onclick="showReview()">Review answers</button>
         <button class="nav-btn next-btn" type="button" id="flaggedBtn" onclick="showFlagged()" hidden>Review flagged</button>
+        <button class="nav-btn next-btn" type="button" id="bmReviewBtn" onclick="showBookmarksReview()" hidden>Bookmarked in session</button>
         <button class="nav-btn next-btn" type="button" onclick="retrySame()">Retry</button>
         <button class="nav-btn back-btn" type="button" onclick="showMenu()">Chapters</button>
       </div>
@@ -279,10 +327,13 @@ const QUESTIONS = {"Chapter 1: Course Introduction":[{"q":"Anatomy is the study 
       let simple = exp.split(/(?<=[.!?])\s+/)[0] || exp;
       if (simple.length > 110) simple = simple.slice(0, 107) + "…";
       q.simpleExp = simple;
-      // Deterministic "common exam trap" tag on ~12% of items with trap-y wording
+      // Deterministic difficulty + exam-trap tags from stem hash
       let h = 0; const s = q.q + cat + i;
       for (let k = 0; k < s.length; k++) h = (h * 31 + s.charCodeAt(k)) >>> 0;
-      q.trap = trapRe.test(q.q) && (h % 8 === 0);
+      // Tag trap-y wording as exam traps; also mark ~8% of others so every chapter has a pool
+      q.trap = trapRe.test(q.q) || (h % 12 === 0);
+      // Difficulty: deterministic easy/medium/hard from stem hash
+      q.diff = (h % 5 === 0) ? "hard" : (h % 3 === 0) ? "easy" : "medium";
     });
   });
 })();
@@ -300,18 +351,23 @@ const K = {
   large: "large_text_v1",
   timer: "timer_on_v1",
   simple: "simple_exp_v1",
+  haptic: "haptic_v1",
+  diffPref: "diff_pref_v1",
   seen: (c) => "seen_v4_" + c,
   best: (c) => "best_v1_" + c,
   srs: (c) => "srs_v1_" + c,
   wrong: (c) => "wrong_v1_" + c,
   stats: (c) => "stats_v1_" + c,
   conf: (c) => "conf_v1_" + c,
+  lastStudied: (c) => "last_studied_v1_" + c,
+  recentResults: (c) => "recent_results_v1_" + c, // last ~12 booleans
+  bookmarks: "bookmarks_v1", // { [cat]: number[] }
   streak: "streak_v1",
   weekly: "weekly_v1",
   recent: "recent_acc_v1"
 };
 
-let mode = "quiz"; // quiz | practice | wrong | mixed | diagnostic
+let mode = "quiz"; // quiz | practice | wrong | mixed | diagnostic | endless | traps | bookmarks
 let cat = null;
 let cats = []; // for mixed/diagnostic
 let qs = []; // {cat, i, q, optOrder}
@@ -322,10 +378,16 @@ let history = [];
 let flagged = []; // indices into qs
 let timerOn = localStorage.getItem(K.timer) === "1";
 let simpleOn = localStorage.getItem(K.simple) === "1";
+let hapticOn = localStorage.getItem(K.haptic) !== "0"; // default on
+let diffPref = localStorage.getItem(K.diffPref) || "any";
 let timerId = null;
 let timeLeft = PER_Q_SECONDS;
 let pendingConf = null;
 let mixedSelected = new Set();
+let sessionStart = 0; // Date.now()
+let endlessActive = false;
+let endlessServed = 0;
+
 
 function $(id){ return document.getElementById(id); }
 function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
@@ -361,6 +423,53 @@ function getSrs(c){ return loadJSON(K.srs(c), {}); }
 function getStats(c){ return loadJSON(K.stats(c), {attempts:0, correct:0}); }
 function getBest(c){ const v=localStorage.getItem(K.best(c)); return v==null?null:Number(v); }
 function getConf(c){ return loadJSON(K.conf(c), {sure_ok:0,sure_bad:0,unsure_ok:0,unsure_bad:0,guess_ok:0,guess_bad:0}); }
+function getBookmarks(){ return loadJSON(K.bookmarks, {}); }
+function saveBookmarks(bm){ saveJSON(K.bookmarks, bm); }
+function isBookmarked(c,i){ return (getBookmarks()[c]||[]).includes(i); }
+function toggleBookmark(c,i){
+  const bm = getBookmarks();
+  const arr = bm[c] ? bm[c].slice() : [];
+  const p = arr.indexOf(i);
+  if (p>=0) arr.splice(p,1); else arr.push(i);
+  bm[c] = arr; saveBookmarks(bm); return p<0;
+}
+function getRecentResults(c){ return loadJSON(K.recentResults(c), []); }
+function pushChapterResult(c, ok){
+  const arr = getRecentResults(c);
+  arr.push(ok?1:0);
+  while (arr.length > 12) arr.shift();
+  saveJSON(K.recentResults(c), arr);
+  localStorage.setItem(K.lastStudied(c), String(Date.now()));
+}
+function lastStudiedLabel(c){
+  const t = Number(localStorage.getItem(K.lastStudied(c))||0);
+  if (!t) return "Never";
+  const d = new Date(t);
+  return d.toLocaleDateString(undefined,{month:"short",day:"numeric"}) + " " + d.toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit"});
+}
+/** Badge thresholds: coverage + mastery */
+function badgeFor(c){
+  const m = masteryPct(c);
+  const cover = getSeen(c).length / QUESTIONS[c].length;
+  if (m >= 85 && cover >= 0.6) return {name:"Gold", cls:"gold"};
+  if (m >= 65 && cover >= 0.35) return {name:"Silver", cls:"silver"};
+  if (m >= 40 && cover >= 0.15) return {name:"Bronze", cls:"bronze"};
+  return {name:"Starter", cls:"none"};
+}
+function heatColor(m){
+  if (m >= 80) return "var(--correct)";
+  if (m >= 55) return "#f59e0b";
+  if (m >= 30) return "#fb923c";
+  return "var(--wrong)";
+}
+function haptic(ok){
+  if (!hapticOn || !navigator.vibrate) return;
+  try { navigator.vibrate(ok ? [12] : [30, 40, 30]); } catch(_){}
+}
+function matchesDiff(q){
+  if (diffPref === "any") return true;
+  return (q.diff || "medium") === diffPref;
+}
 
 function masteryPct(c){
   // Recent accuracy weighted with coverage
@@ -449,10 +558,25 @@ function showScreen(id){
 }
 function showMenu(){
   stopTimer();
+  endlessActive = false;
   renderStats();
+  renderHeatmap();
   renderMenu();
   $("mixedBox").style.display = mode==="mixed" ? "block" : "none";
   showScreen("menu");
+}
+function renderHeatmap(){
+  const el = $("heatmap");
+  if (!el) return;
+  el.innerHTML = CHAPTERS.map((c,i)=>{
+    const m = masteryPct(c);
+    const short = c.replace(/^Chapter\s*\d+:\s*/,"").split(" ")[0];
+    return `<div class="heat-cell" title="${escapeHtml(c)}: ${m}%">
+      <div class="hl">Ch${i+1}</div>
+      <div class="hbar"><i style="width:${m}%;background:${heatColor(m)}"></i></div>
+      <div class="hl">${m}%</div>
+    </div>`;
+  }).join("");
 }
 function renderStats(){
   const streak = loadJSON(K.streak,{count:0}).count || 0;
@@ -471,7 +595,10 @@ function modeHintText(){
     practice: "Practice: no score pressure · free retry · same feedback.",
     wrong: "Wrong only: drills questions you previously missed.",
     mixed: "Mixed: pick chapters, then start a random 10-question set.",
-    diagnostic: "Diagnostic: 10 mixed questions → chapter focus tips."
+    diagnostic: "Diagnostic: 10 mixed questions → chapter focus tips.",
+    endless: "Endless: keeps serving SRS-weighted questions until you exit.",
+    traps: "Exam traps: only questions tagged as common traps.",
+    bookmarks: "Bookmarks: review questions you saved with ★ / B."
   })[mode];
 }
 function renderMenu(){
@@ -482,13 +609,16 @@ function renderMenu(){
     const seen = getSeen(name).length;
     const total = QUESTIONS[name].length;
     const m = masteryPct(name);
+    const badge = badgeFor(name);
+    const bmN = (getBookmarks()[name]||[]).length;
     const btn = document.createElement("button");
     btn.type="button"; btn.className="topic-card";
     btn.innerHTML = `
       <div class="topic-icon">${ICONS[i]||"📖"}</div>
       <div class="topic-meta">
         <strong>${name}</strong>
-        <span>${seen} / ${total} seen · best ${getBest(name)??"—"}%${getWrong(name).length?` · ${getWrong(name).length} wrong`:""}</span>
+        <span>${seen} / ${total} seen · best ${getBest(name)??"—"}%${getWrong(name).length?` · ${getWrong(name).length} wrong`:""}${bmN?` · ★${bmN}`:""}</span>
+        <span class="badge ${badge.cls}">${badge.name}</span>
       </div>
       <div class="mastery" style="--p:${m}" title="Mastery"><span>${m}%</span></div>`;
     btn.onclick = ()=>{
@@ -517,8 +647,9 @@ function renderMixedChecks(){
 }
 
 function resetChapter(name){
-  [K.seen(name),K.best(name),K.srs(name),K.wrong(name),K.stats(name),K.conf(name)].forEach(k=>localStorage.removeItem(k));
-  renderMenu(); renderStats();
+  [K.seen(name),K.best(name),K.srs(name),K.wrong(name),K.stats(name),K.conf(name),K.lastStudied(name),K.recentResults(name)].forEach(k=>localStorage.removeItem(k));
+  const bm = getBookmarks(); delete bm[name]; saveBookmarks(bm);
+  renderHeatmap(); renderMenu(); renderStats();
 }
 function resetAll(){
   if (!confirm("Reset ALL progress, streaks, and stats on this device?")) return;
@@ -528,6 +659,28 @@ function resetAll(){
 }
 
 /* ---- Preface / concepts ---- */
+function renderChapStats(name){
+  const el = $("chapStatsBody");
+  if (!el) return;
+  const seen = getSeen(name).length;
+  const total = QUESTIONS[name].length;
+  const st = getStats(name);
+  const acc = st.attempts ? Math.round(100 * st.correct / st.attempts) : null;
+  const recent = getRecentResults(name);
+  const recentStr = recent.length
+    ? recent.map(r => r ? "✓" : "✗").join(" ")
+    : "No recent attempts";
+  const badge = badgeFor(name);
+  const traps = QUESTIONS[name].filter(q => q.trap).length;
+  const bms = (getBookmarks()[name] || []).length;
+  el.innerHTML = `
+    <div><b>Accuracy:</b> ${acc==null ? "—" : acc + "%"} (${st.correct||0}/${st.attempts||0})</div>
+    <div><b>Questions seen:</b> ${seen} / ${total}</div>
+    <div><b>Mastery:</b> ${masteryPct(name)}% · badge <span class="badge ${badge.cls}">${badge.name}</span></div>
+    <div><b>Last studied:</b> ${lastStudiedLabel(name)}</div>
+    <div><b>Most recent:</b> ${recentStr}</div>
+    <div><b>Exam traps / bookmarks:</b> ${traps} traps · ★${bms}</div>`;
+}
 function openPreface(name){
   cat = name; cats = [name];
   const concepts = KEY_CONCEPTS[name] || [];
@@ -535,10 +688,17 @@ function openPreface(name){
   const wrongN = getWrong(name).length;
   $("prefaceMeta").textContent = mode==="wrong"
     ? (wrongN ? `${wrongN} previously incorrect questions available.` : "No wrong answers stored yet — take a quiz first.")
+    : mode==="traps"
+    ? `Practice common exam-trap questions in this chapter.`
+    : mode==="bookmarks"
+    ? `${(getBookmarks()[name]||[]).length} bookmarked question(s).`
+    : mode==="endless"
+    ? `Endless practice — exit anytime for a session summary.`
     : `Mastery ${masteryPct(name)}% · ${getSeen(name).length}/${QUESTIONS[name].length} seen`;
+  renderChapStats(name);
   $("beginBtn").onclick = ()=> startChapterQuiz(name);
   $("resetChapBtn").onclick = ()=>{ if(confirm("Reset progress for this chapter?")){ resetChapter(name); openPreface(name);} };
-  $("beginBtn").disabled = mode==="wrong" && wrongN===0;
+  $("beginBtn").disabled = (mode==="wrong" && wrongN===0) || (mode==="bookmarks" && !(getBookmarks()[name]||[]).length);
   showScreen("preface");
 }
 
@@ -548,16 +708,22 @@ function pack(c, i){
   const optOrder = shuffle([0,1,2,3]);
   return {cat:c, i, q, optOrder, map: Object.fromEntries(optOrder.map((oi,pos)=>[pos, oi]))};
 }
-function pickWeighted(c, count){
-  const all = QUESTIONS[c].map((_,i)=>({i, w: srsWeight(c,i)}));
-  // Prefer higher weights
+function pickWeighted(c, count, filterFn){
+  let all = QUESTIONS[c].map((_,i)=>({i, w: srsWeight(c,i), q: QUESTIONS[c][i]}));
+  if (filterFn) all = all.filter(x=>filterFn(x.q, x.i));
+  if (diffPref !== "any") all = all.filter(x=>matchesDiff(x.q));
+  // If filter emptied the pool, fall back without difficulty filter
+  if (!all.length) {
+    all = QUESTIONS[c].map((_,i)=>({i, w: srsWeight(c,i), q: QUESTIONS[c][i]}));
+    if (filterFn) all = all.filter(x=>filterFn(x.q, x.i));
+  }
   const pool=[];
   const copy=all.slice();
   while (pool.length<count && copy.length){
-    const sum = copy.reduce((a,b)=>a+b.w,0);
+    const sum = copy.reduce((a,b)=>a+Math.max(1,b.w),0);
     let r = Math.random()*sum;
     let pick=0;
-    for (let k=0;k<copy.length;k++){ r-=copy[k].w; if(r<=0){pick=k;break;} }
+    for (let k=0;k<copy.length;k++){ r-=Math.max(1,copy[k].w); if(r<=0){pick=k;break;} }
     pool.push(copy.splice(pick,1)[0].i);
   }
   return pool.map(i=>pack(c,i));
@@ -565,9 +731,23 @@ function pickWeighted(c, count){
 function startChapterQuiz(name){
   cat = name; cats=[name];
   if (mode==="wrong"){
-    const w = getWrong(name);
-    if (!w.length){ alert("No wrong answers yet."); return; }
-    qs = shuffle(w.slice()).slice(0, Math.min(10,w.length)).map(i=>pack(name,i));
+    const w = getWrong(name).filter(i=>matchesDiff(QUESTIONS[name][i]));
+    const pool = w.length ? w : getWrong(name);
+    if (!pool.length){ alert("No wrong answers yet."); return; }
+    qs = shuffle(pool.slice()).slice(0, Math.min(10,pool.length)).map(i=>pack(name,i));
+  } else if (mode==="traps"){
+    qs = pickWeighted(name, 10, q=>!!q.trap);
+    if (!qs.length){ alert("No trap questions in this chapter."); return; }
+  } else if (mode==="bookmarks"){
+    const bm = (getBookmarks()[name]||[]).filter(i=>matchesDiff(QUESTIONS[name][i]));
+    const pool = bm.length ? bm : (getBookmarks()[name]||[]);
+    if (!pool.length){ alert("No bookmarks yet."); return; }
+    qs = shuffle(pool.slice()).slice(0, Math.min(10,pool.length)).map(i=>pack(name,i));
+  } else if (mode==="endless"){
+    endlessActive = true;
+    endlessServed = 0;
+    qs = pickWeighted(name, 1);
+    if (!qs.length){ alert("No questions available."); return; }
   } else {
     qs = pickWeighted(name, 10);
   }
@@ -609,14 +789,24 @@ function startDiagnostic(){
 }
 function beginSession(){
   idx=0; score=0; answered=false; history=[]; flagged=[]; pendingConf=null;
-  $("nextBtn").textContent="Next";
+  sessionStart = Date.now();
+  endlessServed = mode==="endless" ? qs.length : 0;
+  $("nextBtn").textContent = mode==="endless" ? "Next" : "Next";
   showScreen("quiz");
   renderQ();
+}
+/** Append one more endless question after answering */
+function enqueueEndlessNext(){
+  if (!endlessActive || !cat || !QUESTIONS[cat]) return;
+  const avoid = new Set(qs.slice(-5).map(x=>x.i));
+  let next = pickWeighted(cat, 3).find(p => !avoid.has(p.i));
+  if (!next) next = pickWeighted(cat, 1)[0];
+  if (next) { qs.push(next); endlessServed++; }
 }
 function retrySame(){
   if (mode==="diagnostic") startDiagnostic();
   else if (mode==="mixed") startMixed();
-  else if (cat && cat!=="Mixed" && cat!=="Diagnostic") startChapterQuiz(cat);
+  else if (cat && QUESTIONS[cat]) startChapterQuiz(cat);
   else showMenu();
 }
 
@@ -626,8 +816,13 @@ function renderQ(){
   $("nextBtn").disabled=true;
   const item=qs[idx];
   const q=item.q;
-  $("progress").textContent=`Question ${idx+1} of ${qs.length}${mode==="practice"?" · Practice":""}`;
-  $("progressBar").style.width=((idx)/qs.length*100)+"%";
+  if (mode==="endless"){
+    $("progress").textContent=`Endless #${idx+1} · Score ${score}`;
+    $("progressBar").style.width="100%";
+  } else {
+    $("progress").textContent=`Question ${idx+1} of ${qs.length}${mode==="practice"?" · Practice":""}`;
+    $("progressBar").style.width=((idx)/qs.length*100)+"%";
+  }
   $("flagCount").hidden = flagged.length===0;
   $("flagCount").textContent = "⚑ "+flagged.length;
 
@@ -637,8 +832,11 @@ function renderQ(){
 
   let tags="";
   if (q.trap) tags+=`<span class="tag trap">Exam trap</span>`;
+  if (q.diff) tags+=`<span class="tag diff-${q.diff}">${q.diff}</span>`;
+  if (isBookmarked(item.cat, item.i)) tags+=`<span class="tag bm">★ Saved</span>`;
   if (mode==="mixed"||mode==="diagnostic") tags+=`<span class="tag">${escapeHtml(item.cat.replace(/^Chapter \d+:\s*/,""))}</span>`;
   if (flagged.includes(idx)) tags+=`<span class="tag">Flagged</span>`;
+  if (mode==="endless") tags+=`<span class="tag">Endless · ${score}/${Math.max(1,history.filter(h=>!h.skipped).length||0)} correct</span>`;
 
   let html=`${tags?`<div class="q-tags">${tags}</div>`:""}<div class="q-text">${escapeHtml(q.q)}</div>`;
   item.optOrder.forEach((oi, pos)=>{
@@ -648,6 +846,7 @@ function renderQ(){
     <div class="action-row">
       <button type="button" class="action-btn secondary" onclick="dontKnow()">I don’t know</button>
       <button type="button" class="action-btn secondary" onclick="toggleFlag()">${flagged.includes(idx)?"Unflag":"Flag"}</button>
+      <button type="button" class="action-btn secondary" onclick="toggleBmBtn()">${isBookmarked(item.cat,item.i)?"★ Saved":"☆ Save"}</button>
       <button type="button" class="action-btn secondary" onclick="skipQ()">Skip</button>
     </div>
     <div id="fb"></div>
@@ -684,19 +883,27 @@ function chooseActual(actualIdx, pos, idk){
   else { fb.className="bad"; fb.innerHTML="<b>Incorrect.</b> "+escapeHtml(exp); }
 
   if (correct) score++;
+  haptic(correct);
   history.push({item, chosenActual:actualIdx, pos, correct, idk:!!idk, timedOut:false, conf:null});
   pendingConf = history.length-1;
   $("conf").classList.add("show");
   $("nextBtn").disabled=false;
-  if (idx===qs.length-1) $("nextBtn").textContent = mode==="diagnostic"?"See results":"Finish";
-  $("progressBar").style.width=((idx+1)/qs.length*100)+"%";
+  if (mode==="endless"){
+    enqueueEndlessNext();
+    $("nextBtn").textContent = "Next";
+    $("progress").textContent=`Endless #${idx+1} · Score ${score}`;
+  } else {
+    if (idx===qs.length-1) $("nextBtn").textContent = mode==="diagnostic"?"See results":"Finish";
+    $("progressBar").style.width=((idx+1)/qs.length*100)+"%";
+  }
 
-  // persist learning signals (skip heavy scoring semantics for practice? still useful)
+  // persist learning signals
   markSeen(item.cat, item.i);
   updateSrs(item.cat, item.i, correct);
   markWrong(item.cat, item.i, !correct);
   markStats(item.cat, correct);
   pushRecent(correct);
+  pushChapterResult(item.cat, correct);
 }
 function rateConf(level){
   if (pendingConf==null) return;
@@ -715,13 +922,32 @@ function toggleFlag(){
   $("flagCount").textContent="⚑ "+flagged.length;
   if (!answered) renderQ();
 }
+function toggleBmBtn(){
+  const item = qs[idx];
+  toggleBookmark(item.cat, item.i);
+  if (!answered) renderQ();
+  else {
+    // refresh tag row lightly
+    const card = $("questionCard");
+    const tags = card.querySelector(".q-tags");
+    if (tags) {
+      const has = isBookmarked(item.cat, item.i);
+      let el = tags.querySelector(".tag.bm");
+      if (has && !el){ el=document.createElement("span"); el.className="tag bm"; el.textContent="★ Saved"; tags.appendChild(el); }
+      if (!has && el) el.remove();
+    }
+    const btn = [...card.querySelectorAll(".action-btn")].find(b=>/Save|Saved/.test(b.textContent));
+    if (btn) btn.textContent = isBookmarked(item.cat,item.i) ? "★ Saved" : "☆ Save";
+  }
+}
 function skipQ(){
   if (answered){ nextQ(); return; }
   // skip counts as unseen soft pass — still record as skipped in history
   answered=true; stopTimer();
   history.push({item:qs[idx], chosenActual:-2, pos:-1, correct:false, idk:false, timedOut:false, skipped:true, conf:null});
   $("nextBtn").disabled=false;
-  if (idx===qs.length-1) $("nextBtn").textContent="Finish";
+  if (mode==="endless") enqueueEndlessNext();
+  else if (idx===qs.length-1) $("nextBtn").textContent="Finish";
   nextQ();
 }
 function nextQ(){
@@ -743,16 +969,51 @@ function finish(){
     const prev=getBest(cat); if(prev==null||pct2>prev) localStorage.setItem(K.best(cat), String(pct2));
   }
 
-  $("scoreTitle").textContent = mode==="practice" ? "Practice complete" : "Complete";
-  $("finalScore").textContent = mode==="practice" ? attempted.filter(h=>h.correct).length+"/"+attempted.length : score+"/"+qs.length;
+  $("scoreTitle").textContent = mode==="practice" ? "Practice complete" : mode==="endless" ? "Endless session" : "Complete";
+  const denom = mode==="endless" ? attempted.length : (mode==="practice" ? attempted.length : qs.length);
+  $("finalScore").textContent = score + "/" + denom;
   $("scoreMsg").textContent = mode==="practice" ? "No score saved — nice drilling." :
+    mode==="endless" ? `You answered ${attempted.length} question(s) in endless mode.` :
     (pct2>=80?"Excellent!":pct2>=60?"Good work.":"Keep reviewing.");
   $("bestMsg").textContent = (cat && QUESTIONS[cat]) ? `Best for chapter: ${getBest(cat)??"—"}% · Mastery now ${masteryPct(cat)}%` : "";
   $("overConfMsg").textContent = overConfSummary(attempted);
   $("flaggedBtn").hidden = flagged.length===0;
+  const sessionBms = attempted.filter(h=>isBookmarked(h.item.cat,h.item.i)).length;
+  $("bmReviewBtn").hidden = sessionBms===0;
+  renderSessionSummary(attempted, pct2);
   $("reviewBtn").style.display = history.length?"block":"none";
+  endlessActive = false;
   showScreen("score");
   renderStats();
+}
+function renderSessionSummary(attempted, pct2){
+  const elapsedMs = Math.max(0, Date.now() - (sessionStart||Date.now()));
+  const secs = Math.round(elapsedMs/1000);
+  const mm = Math.floor(secs/60), ss = String(secs%60).padStart(2,"0");
+  const chapters = [...new Set(attempted.map(h=>h.item.cat))];
+  const sureBad = attempted.filter(h=>h.conf==="sure" && !h.correct).length;
+  const rated = attempted.filter(h=>h.conf).length;
+  const cal = rated ? (sureBad ? `${sureBad} overconfident` : "Well calibrated") : "No ratings";
+  $("sessionSummary").innerHTML = `
+    <div class="panel"><div class="hint">Accuracy</div><b>${attempted.length?pct2+"%":"—"}</b></div>
+    <div class="panel"><div class="hint">Time</div><b>${mm}:${ss}</b></div>
+    <div class="panel"><div class="hint">Confidence</div><b style="font-size:.95rem">${cal}</b></div>
+    <div class="panel"><div class="hint">Chapters</div><b style="font-size:.82rem">${chapters.length?chapters.map(c=>c.replace(/^Chapter\s*\d+:\s*/,"")).join(", "):"—"}</b></div>`;
+}
+function showBookmarksReview(){
+  // Review only bookmarked items from this session
+  $("missedOnly").checked = false;
+  const list = $("reviewList");
+  const items = history.filter(h => isBookmarked(h.item.cat, h.item.i));
+  $("reviewTitle").textContent = `Bookmarked (${items.length})`;
+  list.innerHTML = items.map((h,n)=>{
+    const q=h.item.q;
+    return `<div class="review-item"><div class="rtag ${h.correct?"ok":"bad"}">★</div>
+      <div class="review-q"><b>${n+1}.</b> ${escapeHtml(q.q)}</div>
+      <div class="hint">Correct: <b>${escapeHtml(q.opts[q.a])}</b></div>
+      <div style="margin-top:.45rem;font-size:.88rem">${escapeHtml(simpleOn?(q.simpleExp||q.exp):q.exp)}</div></div>`;
+  }).join("") || `<div class="hint" style="padding:1rem;text-align:center">No bookmarks in this session.</div>`;
+  showScreen("review");
 }
 function overConfSummary(attempted){
   const sureBad = attempted.filter(h=>h.conf==="sure" && !h.correct).length;
@@ -834,7 +1095,9 @@ function startTimer(){
         const fb=$("fb"); fb.className="bad"; fb.innerHTML="<b>Time’s up.</b> "+escapeHtml(exp);
         history.push({item, chosenActual:-1, pos:-1, correct:false, idk:false, timedOut:true, conf:null});
         pendingConf=history.length-1; $("conf").classList.add("show");
-        markSeen(item.cat,item.i); updateSrs(item.cat,item.i,false); markWrong(item.cat,item.i,true); markStats(item.cat,false); pushRecent(false);
+        haptic(false);
+        markSeen(item.cat,item.i); updateSrs(item.cat,item.i,false); markWrong(item.cat,item.i,true); markStats(item.cat,false); pushRecent(false); pushChapterResult(item.cat,false);
+        if (mode==="endless") enqueueEndlessNext();
         $("nextBtn").disabled=false;
         if(idx===qs.length-1) $("nextBtn").textContent="Finish";
       }
@@ -849,19 +1112,124 @@ function paintTimer(){
 }
 
 function confirmLeave(){
+  // Endless: allow exit anytime; show summary if anything was answered
+  if (mode==="endless"){
+    if (history.length){
+      if (!confirm("End endless session and see summary?")) return;
+      finish();
+      return;
+    }
+    showMenu();
+    return;
+  }
   if (answered || idx>0){ if(!confirm("Leave this session?")) return; }
   showMenu();
 }
 
 /* ---- Export ---- */
 function exportProgress(){
-  const data={exportedAt:new Date().toISOString(), streak:loadJSON(K.streak,{}), weekly:loadJSON(K.weekly,{}), recent:loadJSON(K.recent,[]), chapters:{}};
+  const data={
+    format:"ccst4083-quiz-progress",
+    version:2,
+    exportedAt:new Date().toISOString(),
+    streak:loadJSON(K.streak,{}),
+    weekly:loadJSON(K.weekly,{}),
+    recent:loadJSON(K.recent,[]),
+    bookmarks:getBookmarks(),
+    prefs:{theme:localStorage.getItem(K.theme), timer:timerOn, simple:simpleOn, haptic:hapticOn, diffPref, large:localStorage.getItem(K.large)},
+    chapters:{}
+  };
   CHAPTERS.forEach(c=>{
-    data.chapters[c]={seen:getSeen(c), best:getBest(c), wrong:getWrong(c), stats:getStats(c), srs:getSrs(c), conf:getConf(c), mastery:masteryPct(c)};
+    data.chapters[c]={
+      seen:getSeen(c), best:getBest(c), wrong:getWrong(c), stats:getStats(c), srs:getSrs(c), conf:getConf(c),
+      recentResults:getRecentResults(c), lastStudied:localStorage.getItem(K.lastStudied(c)), mastery:masteryPct(c)
+    };
   });
   const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
   const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="ccst4083-quiz-progress.json"; a.click();
   URL.revokeObjectURL(a.href);
+}
+/** Validate + merge imported progress JSON */
+function importProgressFile(file){
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      const err = validateImport(data);
+      if (err) { alert("Import failed: " + err); return; }
+      if (!confirm("Merge imported progress into this device? Existing higher best scores are kept.")) return;
+      applyImport(data);
+      alert("Progress imported.");
+      showMenu();
+    } catch (e) {
+      alert("Import failed: invalid JSON.");
+    }
+  };
+  reader.readAsText(file);
+}
+function validateImport(data){
+  if (!data || typeof data !== "object") return "not an object";
+  if (!data.chapters || typeof data.chapters !== "object") return "missing chapters";
+  // Accept v1 (no format field) and v2
+  const keys = Object.keys(data.chapters);
+  if (!keys.length) return "no chapter data";
+  for (const c of keys) {
+    if (!QUESTIONS[c]) continue; // skip unknown chapters
+    const ch = data.chapters[c];
+    if (ch.seen && !Array.isArray(ch.seen)) return "invalid seen for "+c;
+    if (ch.wrong && !Array.isArray(ch.wrong)) return "invalid wrong for "+c;
+  }
+  return null;
+}
+function uniqNums(arr, maxExclusive){
+  return [...new Set((arr||[]).map(Number).filter(n => Number.isInteger(n) && n>=0 && (maxExclusive==null || n<maxExclusive)))];
+}
+function applyImport(data){
+  if (data.streak) saveJSON(K.streak, data.streak);
+  if (data.weekly) saveJSON(K.weekly, data.weekly);
+  if (Array.isArray(data.recent)) saveJSON(K.recent, data.recent.slice(-40));
+  if (data.bookmarks && typeof data.bookmarks==="object"){
+    const cur = getBookmarks();
+    Object.keys(data.bookmarks).forEach(c=>{
+      if (!QUESTIONS[c]) return;
+      cur[c] = uniqNums([...(cur[c]||[]), ...(data.bookmarks[c]||[])], QUESTIONS[c].length);
+    });
+    saveBookmarks(cur);
+  }
+  if (data.prefs){
+    if (data.prefs.diffPref) { diffPref = data.prefs.diffPref; localStorage.setItem(K.diffPref, diffPref); }
+    if (typeof data.prefs.haptic === "boolean") { hapticOn = data.prefs.haptic; localStorage.setItem(K.haptic, hapticOn?"1":"0"); }
+  }
+  Object.keys(data.chapters).forEach(c=>{
+    if (!QUESTIONS[c]) return;
+    const ch = data.chapters[c];
+    const n = QUESTIONS[c].length;
+    if (ch.seen) saveJSON(K.seen(c), uniqNums([...(getSeen(c)), ...ch.seen], n));
+    if (ch.wrong) saveJSON(K.wrong(c), uniqNums([...(getWrong(c)), ...ch.wrong], n));
+    if (ch.srs && typeof ch.srs==="object"){
+      const cur = getSrs(c);
+      Object.keys(ch.srs).forEach(i=>{ cur[i] = ch.srs[i]; });
+      saveJSON(K.srs(c), cur);
+    }
+    if (ch.stats){
+      const cur = getStats(c);
+      saveJSON(K.stats(c), {
+        attempts: (cur.attempts||0) + (ch.stats.attempts||0),
+        correct: (cur.correct||0) + (ch.stats.correct||0)
+      });
+    }
+    if (ch.conf){
+      const cur = getConf(c);
+      Object.keys(ch.conf).forEach(k=>{ cur[k] = (cur[k]||0) + (ch.conf[k]||0); });
+      saveJSON(K.conf(c), cur);
+    }
+    if (Array.isArray(ch.recentResults)) saveJSON(K.recentResults(c), ch.recentResults.slice(-12));
+    if (ch.lastStudied) localStorage.setItem(K.lastStudied(c), String(ch.lastStudied));
+    if (typeof ch.best === "number"){
+      const prev = getBest(c);
+      if (prev==null || ch.best > prev) localStorage.setItem(K.best(c), String(ch.best));
+    }
+  });
 }
 
 /* ---- Keyboard ---- */
@@ -870,6 +1238,7 @@ document.addEventListener("keydown", (e)=>{
   if (!answered && ["1","2","3","4"].includes(e.key)){ choosePos(Number(e.key)-1); e.preventDefault(); }
   if (!answered && (e.key==="d"||e.key==="D")){ dontKnow(); e.preventDefault(); }
   if ((e.key==="f"||e.key==="F")){ toggleFlag(); e.preventDefault(); }
+  if ((e.key==="b"||e.key==="B")){ toggleBmBtn(); e.preventDefault(); }
   if (!answered && (e.key==="s"||e.key==="S")){ skipQ(); e.preventDefault(); }
   if (answered && e.key==="Enter"){ nextQ(); e.preventDefault(); }
 });
@@ -887,9 +1256,13 @@ document.addEventListener("keydown", (e)=>{
   $("timerToggle").onchange=e=>{ timerOn=!!e.target.checked; localStorage.setItem(K.timer, timerOn?"1":"0"); };
   $("simpleToggle").onchange=e=>{ simpleOn=!!e.target.checked; localStorage.setItem(K.simple, simpleOn?"1":"0"); };
   $("exportBtn").onclick=exportProgress;
+  $("importBtn").onclick=()=>$("importFile").click();
+  $("importFile").onchange=(e)=>{ const f=e.target.files&&e.target.files[0]; if(f) importProgressFile(f); e.target.value=""; };
   $("resetAllBtn").onclick=resetAll;
   $("startMixedBtn").onclick=startMixed;
   $("missedOnly").onchange=()=>renderReview(false);
+  $("hapticToggle").checked = hapticOn;
+  $("hapticToggle").onchange=(e)=>{ hapticOn=!!e.target.checked; localStorage.setItem(K.haptic, hapticOn?"1":"0"); };
 
   document.querySelectorAll("#modeSeg .seg-btn").forEach(btn=>{
     btn.onclick=()=>{
@@ -897,8 +1270,19 @@ document.addEventListener("keydown", (e)=>{
       btn.classList.add("active");
       mode=btn.dataset.mode;
       $("mixedBox").style.display = mode==="mixed"?"block":"none";
-      if (mode==="diagnostic"){ /* waiting for chapter tap or auto */ }
       renderMenu();
+    };
+  });
+  document.querySelectorAll("#diffSeg .seg-btn").forEach(btn=>{
+    if (btn.dataset.diff === diffPref) {
+      document.querySelectorAll("#diffSeg .seg-btn").forEach(b=>b.classList.remove("active"));
+      btn.classList.add("active");
+    }
+    btn.onclick=()=>{
+      document.querySelectorAll("#diffSeg .seg-btn").forEach(b=>b.classList.remove("active"));
+      btn.classList.add("active");
+      diffPref = btn.dataset.diff;
+      localStorage.setItem(K.diffPref, diffPref);
     };
   });
 
